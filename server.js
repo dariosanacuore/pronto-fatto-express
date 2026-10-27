@@ -25,6 +25,12 @@ const sessionStore = new MySQLStore({}, db);
 
 const PORT = process.env.PORT || 3000;
 
+// Lista delle origini autorizzate (CORS)
+const allowedOrigins = [
+    'http://localhost:5173',
+    'https://pronto-fatto2-react.vercel.app'
+];
+
 app.use((req, res, next) => {
     console.log('Metodo:', req.method);
     console.log('URL:', req.url);
@@ -33,7 +39,13 @@ app.use((req, res, next) => {
 });
 
 app.use(cors({
-    origin: 'http://localhost:5173',
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true);
+        } else {
+            callback(new Error('Bloccato dalla policy CORS'));
+        }
+    },
     credentials: true
 }));
 
@@ -47,18 +59,24 @@ const sessionMiddleware = session({
     saveUninitialized: false,
     cookie: {
         httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production', // Consigliato 'true' su Render se usi HTTPS
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // 'none' se frontend e backend sono su domini differenti in prod
         maxAge: 1000 * 60 * 60 * 24
     }
 });
 
 app.use(sessionMiddleware);
 
-// Configurazione Socket.IO
+// Configurazione Socket.IO con CORS dinamico
 const io = new Server(server, {
     cors: {
-        origin: 'http://localhost:5173',
+        origin: function (origin, callback) {
+            if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+                callback(null, true);
+            } else {
+                callback(new Error('Bloccato dalla policy CORS Socket.IO'));
+            }
+        },
         credentials: true
     }
 });
@@ -218,6 +236,7 @@ app.set('io', io);
 app.get("/", (req, res) => {
     res.send("Backend ProntoFatto funzionante!");
 });
+
 server.listen(PORT, () => {
     console.log(`Server avviato su http://localhost:${PORT}`);
 });
