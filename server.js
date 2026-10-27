@@ -35,7 +35,9 @@ if (!process.env.SESSION_SECRET) {
 // Origini autorizzate
 const allowedOrigins = [
     'http://localhost:5173',
-    'https://pronto-fatto2-react.vercel.app'
+    'https://pronto-fatto2-react.vercel.app',
+    'https://www.prontofattohub.it',
+    'https://prontofattohub.it',
 ];
 
 // Configurazione CORS per React e Axios
