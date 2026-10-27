@@ -1,12 +1,18 @@
-import mysql2 from 'mysql2/promise';
-import 'dotenv/config';
-import { createPool } from 'mysql2';
+import mysql from 'mysql2/promise';
+import "dotenv/config";
 
-const db = mysql2.createPool({
+const db = mysql.createPool({
     host: process.env.DB_HOST,
+    port: process.env.DB_PORT || 3306,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    port: Number(process.env.DB_PORT) || 3306
+    ssl: {
+        rejectUnauthorized: false // Necessario per connessioni SSL esterne come Aiven
+    },
+    waitForConnections: true,
+    connectionLimit: 10,
+    queueLimit: 0
 });
+
 export default db;
