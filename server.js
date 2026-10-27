@@ -215,6 +215,9 @@ app.use("/api", contactRoutes);
 // Rendi io disponibile alle rotte Express, se necessario
 app.set('io', io);
 
+app.get("/", (req, res) => {
+    res.send("Backend ProntoFatto funzionante!");
+});
 server.listen(PORT, () => {
     console.log(`Server avviato su http://localhost:${PORT}`);
 });
