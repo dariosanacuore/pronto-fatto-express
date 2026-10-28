@@ -64,40 +64,31 @@ export async function register(req, res) {
         const insertId = result.insertId;
 
         // Creo il link di verifica
-        const link =
-            `${process.env.FRONTEND_URL}/verifica-email/${token}`;
+        const link = `${process.env.FRONTEND_URL || 'https://www.prontofattohub.it'}/verifica-email/${token}`;
 
-        // Invio l'email di conferma
-        await transporter.sendMail({
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'Conferma la tua email - ProntoFatto',
-            html: `
-                <h2>Benvenuto su ProntoFatto!</h2>
-
-                <p>Per completare la registrazione,
-                verifica il tuo indirizzo email.</p>
-
-                <a href="${link}"
-                   style="display:inline-block;
-                   padding:12px 20px;
-                   background:#0d6efd;
-                   color:white;
-                   text-decoration:none;
-                   border-radius:6px;">
-                    Verifica la mia email
-                </a>
-
-                <p>Il link scade tra un'ora.</p>
-
-                <p>Se non hai richiesto la registrazione,
-                ignora questa email.</p>
-            `
-        });
+        // Tentativo di invio email in background (se fallisce per timeout su Render, non blocca la registrazione)
+        try {
+            await transporter.sendMail({
+                from: process.env.EMAIL_USER,
+                to: email,
+                subject: 'Conferma la tua email - ProntoFatto',
+                html: `
+                    <h2>Benvenuto su ProntoFatto!</h2>
+                    <p>Per completare la registrazione, verifica il tuo indirizzo email.</p>
+                    <a href="${link}" style="display:inline-block; padding:12px 20px; background:#0d6efd; color:white; text-decoration:none; border-radius:6px;">
+                        Verifica la mia email
+                    </a>
+                    <p>Il link scade tra un'ora.</p>
+                    <p>Se non hai richiesto la registrazione, ignora questa email.</p>
+                `
+            });
+        } catch (mailError) {
+            console.error('Attenzione: Invio email fallito ma utente registrato:', mailError);
+        }
 
         return res.status(201).json({
-            message: 'Registrazione effettuata! Controlla la tua email per confermare l\'account.',
-            userId: result.insertId
+            message: 'Registrazione effettuata con successo!',
+            userId: insertId
         });
 
     } catch (error) {
@@ -198,13 +189,6 @@ export async function login(req, res) {
         if (!passwordCorretta) {
             return res.status(401).json({
                 message: 'Email o password non corrette'
-            });
-        }
-
-        // Controllo che l'email sia verificata
-        if (!utente.email_verificata) {
-            return res.status(403).json({
-                message: 'Devi verificare la tua email prima di accedere.'
             });
         }
 
