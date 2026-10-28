@@ -1,8 +1,6 @@
 
 import db from '../config/db.js';
 import bcrypt from 'bcryptjs';
-import crypto from 'crypto';
-import transporter from '../config/mailer.js';
 
 // REGISTRAZIONE
 export async function register(req, res) {
@@ -43,51 +41,17 @@ export async function register(req, res) {
         // Proteggo la password con bcrypt
         const passwordHash = await bcrypt.hash(password, 12);
 
-        // Genero un token casuale per verificare l'email
-        const token = crypto.randomBytes(32).toString('hex');
-
-        // Salvo nel database soltanto l'hash del token
-        const tokenHash = crypto
-            .createHash('sha256')
-            .update(token)
-            .digest('hex');
-
-        // Inserisco il nuovo utente
+        // Inserisco il nuovo utente impostandolo direttamente come verificato
         const [result] = await db.query(
             `INSERT INTO utenti
-             (username, email, password, email_verificata,
-              token_verifica, scadenza_token)
-             VALUES (?, ?, ?, FALSE, ?,
-                     DATE_ADD(NOW(), INTERVAL 1 HOUR))`,
-            [username, email, passwordHash, tokenHash]
+             (username, email, password, email_verificata)
+             VALUES (?, ?, ?, TRUE)`,
+            [username, email, passwordHash]
         );
         const insertId = result.insertId;
 
-        // Creo il link di verifica
-        const link = `${process.env.FRONTEND_URL || 'https://www.prontofattohub.it'}/verifica-email/${token}`;
-
-        // Tentativo di invio email in background (se fallisce per timeout su Render, non blocca la registrazione)
-        try {
-            await transporter.sendMail({
-                from: process.env.EMAIL_USER,
-                to: email,
-                subject: 'Conferma la tua email - ProntoFatto',
-                html: `
-                    <h2>Benvenuto su ProntoFatto!</h2>
-                    <p>Per completare la registrazione, verifica il tuo indirizzo email.</p>
-                    <a href="${link}" style="display:inline-block; padding:12px 20px; background:#0d6efd; color:white; text-decoration:none; border-radius:6px;">
-                        Verifica la mia email
-                    </a>
-                    <p>Il link scade tra un'ora.</p>
-                    <p>Se non hai richiesto la registrazione, ignora questa email.</p>
-                `
-            });
-        } catch (mailError) {
-            console.error('Attenzione: Invio email fallito ma utente registrato:', mailError);
-        }
-
         return res.status(201).json({
-            message: 'Registrazione effettuata con successo!',
+            message: 'Registrazione effettuata con successo! Ora puoi accedere.',
             userId: insertId
         });
 
@@ -101,53 +65,11 @@ export async function register(req, res) {
 }
 
 
-// VERIFICA EMAIL
+// VERIFICA EMAIL (Disattivata/Non più necessaria)
 export async function verificaEmail(req, res) {
-    try {
-        // Recupero il token dall'URL
-        const { token } = req.params;
-
-        if (!token) {
-            return res.status(400).json({
-                message: 'Token mancante'
-            });
-        }
-
-        // Calcolo l'hash del token ricevuto
-        const tokenHash = crypto
-            .createHash('sha256')
-            .update(token)
-            .digest('hex');
-
-        // Verifico il token e attivo l'account
-        const [result] = await db.query(
-            `UPDATE utenti
-             SET email_verificata = TRUE,
-                 token_verifica = NULL,
-                 scadenza_token = NULL
-             WHERE token_verifica = ?
-               AND scadenza_token > NOW()
-               AND email_verificata = FALSE`,
-            [tokenHash]
-        );
-
-        if (result.affectedRows === 0) {
-            return res.status(400).json({
-                message: 'Link non valido, scaduto o già utilizzato'
-            });
-        }
-
-        return res.status(200).json({
-            message: 'Email verificata correttamente! Ora puoi accedere.'
-        });
-
-    } catch (error) {
-        console.error('Errore nella verifica email:', error);
-
-        return res.status(500).json({
-            message: 'Errore durante la verifica dell\'email'
-        });
-    }
+    return res.status(200).json({
+        message: 'La verifica email non è attiva.'
+    });
 }
 
 
@@ -163,9 +85,9 @@ export async function login(req, res) {
             });
         }
 
-        // Cerco l'utente, compreso lo stato di verifica dell'email
+        // Cerco l'utente
         const [utenti] = await db.query(
-            `SELECT id, username, email, password, email_verificata
+            `SELECT id, username, email, password
              FROM utenti
              WHERE email = ?`,
             [email]
